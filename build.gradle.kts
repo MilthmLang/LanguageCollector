@@ -43,6 +43,9 @@ private val jsonMapper: ObjectMapper = ObjectMapper().registerModule(JavaTimeMod
 
 tasks {
     val weblateTask = named<CollectFromWeblateTask>("weblate") {
+        group = "build"
+        description = "Collect translations from Weblate"
+
         val ignoredKeysEnv = providers.gradleProperty("weblate.ignoredKeys").orNull ?: ""
         val ignoredKeysList = ignoredKeysEnv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
