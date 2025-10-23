@@ -1,6 +1,7 @@
 package com.morizero.milthmlang.collector.action
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.morizero.milthmlang.collector.exception.WeblateException
 import com.morizero.milthmlang.collector.model.VirtualFile
 import com.morizero.milthmlang.collector.weblate.WeblateClient
 import okhttp3.OkHttpClient
@@ -59,8 +60,15 @@ abstract class WeblateFetchTranslationAction : WorkAction<WeblateFetchTranslatio
                     }
                     translations[key] = value
                 }
+            } catch (e: WeblateException) {
+                if (e.statusCode == 404) {
+                    logger.warn("Component '$component' for language '${lang}' not found (404). Skipping.")
+                    continue
+                } else {
+                    error("Failed to fetch component '$component' for language '${lang}': ${e.message}, \n${e}")
+                }
             } catch (e: Exception) {
-                logger.error("Failed to fetch component '$component' for language '${lang}': ${e.message}, \n${e}")
+                error("Failed to fetch component '$component' for language '${lang}': ${e.message}, \n${e}")
             }
         }
 

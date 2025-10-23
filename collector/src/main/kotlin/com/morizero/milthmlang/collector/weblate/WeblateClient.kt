@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.morizero.milthmlang.collector.exception.WeblateException
 import com.morizero.milthmlang.collector.model.ChangeResultRoot
 import com.morizero.milthmlang.collector.model.ComponentsResultRoot
 import com.morizero.milthmlang.collector.model.LanguageListItem
@@ -12,7 +13,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.io.IOException
 
 class WeblateClientConfigurer {
     var endpoint: String = "https://weblate.milthm.com/api"
@@ -47,7 +47,7 @@ class WeblateClient(
 
         return client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) {
-                throw IOException("failed to fetch data: ${res.code}, url: $url")
+                throw WeblateException(res.code, "failed to fetch data: ${res.code}, url: $url")
             }
 //            val body = res.body?.string() ?: ""
 //            logger.info(body)
