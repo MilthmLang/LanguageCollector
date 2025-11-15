@@ -5,20 +5,8 @@ import com.morizero.milthmlang.collector.exception.WeblateException
 import com.morizero.milthmlang.collector.model.VirtualFile
 import com.morizero.milthmlang.collector.weblate.WeblateClient
 import okhttp3.OkHttpClient
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.workers.WorkAction
-import org.gradle.workers.WorkParameters
 import org.slf4j.LoggerFactory
-
-interface WeblateFetchTranslationParameter : WorkParameters {
-    var endpoint: String
-    var weblateToken: String
-    var project: String
-    var components: List<String>
-    var ignoreKeys: List<String>
-    var lang: String
-    var outputDir: DirectoryProperty
-}
 
 abstract class WeblateFetchTranslationAction : WorkAction<WeblateFetchTranslationParameter> {
     override fun execute() {
@@ -30,7 +18,7 @@ abstract class WeblateFetchTranslationAction : WorkAction<WeblateFetchTranslatio
         val weblateToken = param.weblateToken
         val components = param.components
         val project = param.project
-        val ignoreKeys = param.ignoreKeys
+        val acceptKey = param.acceptKey
         val lang = param.lang
         val outputDirectory = param.outputDir
 
@@ -52,7 +40,7 @@ abstract class WeblateFetchTranslationAction : WorkAction<WeblateFetchTranslatio
                     "/translations/$project/$component/${lang}/file/?format=json"
                 )
                 for ((key, value) in tmp) {
-                    if (key in ignoreKeys) {
+                    if (!(acceptKey(key))) {
                         continue
                     }
                     if (key in translations) {
@@ -72,9 +60,14 @@ abstract class WeblateFetchTranslationAction : WorkAction<WeblateFetchTranslatio
             }
         }
 
+        val sortedTranslations = LinkedHashMap<String, String>()
+        translations.keys.sorted().forEach { key ->
+            sortedTranslations[key] = translations[key]!!
+        }
+
         VirtualFile(
             path = "${lang}.json",
-            content = mapper.writeValueAsBytes(translations)
+            content = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(sortedTranslations)
         ).writeTo(outputDirectory)
     }
 }

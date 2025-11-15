@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.morizero.milthmlang.collector.action.WeblateAcceptKeyPredicator
 import com.morizero.milthmlang.collector.action.WeblateFetchTranslationAction
 import com.morizero.milthmlang.collector.model.ComponentMeta
 import com.morizero.milthmlang.collector.model.LanguagePackMeta
@@ -33,7 +34,7 @@ abstract class CollectFromWeblateTask @Inject constructor(
     lateinit var weblateToken: String
 
     @Input
-    lateinit var ignoreKeys: List<String>
+    lateinit var acceptKeyPredicator: WeblateAcceptKeyPredicator
 
     @get:Internal
     abstract val latestWeblateEventId: Property<String>
@@ -113,7 +114,7 @@ abstract class CollectFromWeblateTask @Inject constructor(
         latestWeblateEventId.set("${masterMeta.lastId}")
         VirtualFile(
             path = "__meta.json",
-            content = jsonMapper.writeValueAsBytes(meta)
+            content = jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(meta)
         ).writeTo(outputDir)
 
         val workQueue = workerExecutor.noIsolation()
@@ -123,7 +124,7 @@ abstract class CollectFromWeblateTask @Inject constructor(
                 param.weblateToken = weblateToken
                 param.project = project
                 param.components = components
-                param.ignoreKeys = ignoreKeys
+                param.acceptKey = acceptKeyPredicator
                 param.lang = lang.code
                 param.outputDir = outputDir
             }

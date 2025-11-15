@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.mgd.core.gradle.S3Upload
+import com.morizero.milthmlang.collector.action.WeblateAcceptKeyPredicator
 import com.morizero.milthmlang.collector.model.LanguagePackMeta
 import com.morizero.milthmlang.collector.task.CollectFromWeblateTask
 
@@ -41,17 +42,36 @@ private val jsonMapper: ObjectMapper = ObjectMapper().registerModule(JavaTimeMod
     .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
 
 
+class WeblateKeyFilter(private val ignoredKeysEnv: String, ignoredKeywordsEnv: String) : WeblateAcceptKeyPredicator {
+    val ignoredKeysList = ignoredKeysEnv.split(",", " ").map { it.trim() }.filter { it.isNotEmpty() }
+    val ignoredKeywordsList = ignoredKeywordsEnv.split(",", " ").map { it.trim() }.filter { it.isNotEmpty() }
+
+    override fun invoke(key: String): Boolean {
+        if (ignoredKeysList.contains(key)) {
+            return false
+        }
+
+        for (keyword in ignoredKeywordsList) {
+            if (key.contains(keyword, ignoreCase = true)) {
+                return false
+            }
+        }
+
+        return true
+    }
+}
+
 tasks {
     val weblateTask = named<CollectFromWeblateTask>("weblate") {
         group = "build"
         description = "Collect translations from Weblate"
 
         val ignoredKeysEnv = providers.gradleProperty("weblate.ignoredKeys").orNull ?: ""
-        val ignoredKeysList = ignoredKeysEnv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val ignoredKeywordsEnv = providers.gradleProperty("weblate.ignoredKeywords").orNull ?: ""
 
         outputDir = project.layout.buildDirectory.asFile.get().resolve("weblate")
         weblateToken = providers.gradleProperty("weblate.token").orNull ?: ""
-        ignoreKeys = ignoredKeysList
+        acceptKeyPredicator = WeblateKeyFilter(ignoredKeysEnv, ignoredKeywordsEnv)
     }
 
     val signWeblate = register<Sign>("signWeblate") {
@@ -82,6 +102,22 @@ tasks {
         onlyIf {
             providers.gradleProperty("signing.secretKeyRingFile").isPresent
         }
+    }
+
+    val copyToUnityFormat = register<Copy>("copyToUnityFormat") {
+        group = "distribution"
+        description = "Copy collected translations to Unity format directory"
+        dependsOn(weblateTask, signWeblate)
+
+        val weblateOutDir = weblateTask.flatMap { it.outputDir }
+        val unityFormatDir = project.layout.buildDirectory.dir("unity_format")
+
+        rename { "$it.bytes" }
+
+        from(weblateOutDir) {
+            include("**/*")
+        }
+        into(unityFormatDir)
     }
 
     val artifactFile = weblateTask.flatMap {
